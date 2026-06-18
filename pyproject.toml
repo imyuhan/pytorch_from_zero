@@ -1,0 +1,106 @@
+# pyproject.toml — PyTorch 学习项目
+#
+# 项目元信息 + 依赖清单。本项目**不需要打包发布**(学习用代码),
+# 所以 [tool.uv] package = false 告诉 uv "别当 package 处理"。
+#
+# 用法(uv,推荐):
+#     uv sync                          # 按 dependencies 装到 .venv
+#     uv sync --group dev              # 包含 dev 依赖(ruff)
+#     uv add <pkg>                     # 加新依赖并自动写回本文件
+#
+# 用法(传统 pip):
+#     python -m venv .venv
+#     source .venv/bin/activate   # 或 .venv\Scripts\Activate.ps1
+#     pip install -r <(uv pip compile pyproject.toml)   # 需要先有 lock 文件
+#     # 或者直接用 pip 手动装 dependencies 里的每个包
+
+[project]
+name = "pytorch-from-zero"
+version = "0.1.0"
+description = "从零开始学 PyTorch 的练习项目 —— 概念 → 例子 → 练习"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "imyuhan", email = "imyuhan@users.noreply.github.com" },
+]
+keywords = ["pytorch", "deep-learning", "learning-notes", "tutorial"]
+
+# 运行依赖(由 uv / pip 解析安装)
+dependencies = [
+    # PyTorch 与 torchvision 从 PyTorch 官方 CUDA 12.4 索引装
+    # (普通包继续从 PyPI 拉)
+    # 对应版本兼容矩阵:torch 2.6.x ↔ torchvision 0.21.x
+    "torch>=2.6.0",
+    "torchvision>=0.21.0",
+    "numpy>=1.26",
+    "matplotlib>=3.8",
+    "pillow>=10.0",
+    "torchinfo>=1.8",        # 06-cnn/03_lenet.py 用 summary()
+]  
+
+[project.optional-dependencies]
+# 07-experiments 章节里如果跑可视化 / confusion matrix 需要
+viz = [
+    "seaborn>=0.13",
+    "scikit-learn>=1.4",
+]
+
+# ============================================================
+# 依赖分组(PEP 735)
+# ============================================================
+[dependency-groups]
+# 开发依赖: ruff lint
+dev = [
+    "ruff>=0.4",
+]
+
+# ============================================================
+# uv 配置
+# ============================================================
+[tool.uv]
+# 学习项目,不打包成 wheel / sdist
+package = false
+
+# PyTorch 官方 CUDA 12.4 索引(只为 torch / torchvision 用)
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true   # 只在下面 [tool.uv.sources] 显式引用的包才走这个索引
+
+# 把 torch / torchvision 绑到这个索引
+# 其它包(numpy / matplotlib / ...)继续从 PyPI 走
+[tool.uv.sources]
+torch = { index = "pytorch-cu124" }
+torchvision = { index = "pytorch-cu124" }
+
+# ============================================================
+# setuptools 配置 —— 防止它把根目录下的 data/ papers/ notebooks/
+# checkpoints/ 这些非 Python 目录当成 package
+# ============================================================
+[tool.setuptools]
+packages = []
+
+# ============================================================
+# ruff lint
+# ============================================================
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# 项目早期不卡太严,只开最常见的几条
+select = ["E", "F", "W", "I"]  # pycodestyle / pyflakes / isort
+ignore = [
+    "E501",   # 行长(很多 example 里故意写长路径 / 注释)
+]
+
+# ============================================================
+# pytest 配置(后续如果要加测试)
+# ============================================================
+[tool.pytest.ini_options]
+# 当前项目没有专门的 tests/ 目录,后续如果要加 pytest 测试:
+#   - 在 tests/ 下放测试文件
+#   - examples/ 下的脚本视为"教学代码",默认不参与测试
+testpaths = ["tests"]
+pythonpath = ["04-attention/src"]
