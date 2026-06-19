@@ -8,7 +8,7 @@ import torch
 a = torch.tensor([[1, 2], [3, 4]])     # 从 Python list
 b = torch.ones(2, 3)                    # 全 1
 c = torch.zeros(2, 3)                   # 全 0
-d = torch.randn(2, 3)                   # N(0, 1) 随机，正态分布
+d = torch.randn(2, 3)                   # N(0, 1) 随机从正态分布中取值
 
 print("a:", a)
 print("b:", b)
