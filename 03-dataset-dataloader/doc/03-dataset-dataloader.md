@@ -15,6 +15,141 @@
 
 ## 3.2 基础知识
 
+### 3.2.0 前置:这章会碰到的基本概念(为 Dataset / DataLoader 做铺垫)
+
+> 03 章名词密度大,先把基本术语和"为什么"讲清楚,后面的内容才不会突兀。
+
+#### 1. 一个训练迭代的最小数据流
+
+神经网络训练时,数据是这样流动的:
+
+```
+[原始数据](图片 / CSV / 文本)
+   ↓ 一个一个样本
+[样本](单张图 + 标签)
+   ↓ 多个样本堆起来
+[batch](比如 32 个样本)
+   ↓ 喂给模型
+[模型.forward(batch)]
+   ↓
+[loss] → 反向传播 → 更新参数
+```
+
+这一章的三个组件各管一段:
+
+| 组件 | 干什么 | 管的是哪一段 |
+|------|--------|------------|
+| **Dataset** | 按索引取一条样本 | 原始数据 → 样本 |
+| **DataLoader** | 打包 batch + shuffle + 多进程 | 样本 → batch |
+| **transform** | 把样本变成 tensor 形式 | 样本 → tensor |
+
+#### 2. 几个绕不开的基本名词
+
+**样本(sample)**:一条数据,比如 1 张图 + 标签。
+
+**batch**:一批样本堆起来同时喂给模型。为什么要 batch?
+- 单条样本梯度方向不稳 → 一次看 N 条取平均更稳
+- GPU 擅长并行 → 一次算 N 条比 N 次算 1 条快得多
+- 常见 batch_size:32、64、128
+
+**epoch**:**完整遍历一遍数据集**。
+
+举例:1000 条样本,batch_size = 100:
+- 1 epoch = 1000 / 100 = **10 个 batch**
+- 训 10 epoch = 把数据集看 10 遍
+
+**iteration**(或 step):**跑一个 batch** 就叫一次 iteration。
+
+```
+1 epoch = ceil(数据集大小 / batch_size) 次 iteration
+```
+
+**shuffle**(打乱):每个 epoch 前**随机打乱**样本顺序。
+- 为什么?模型按顺序学可能"记住顺序"而不是"学规律"。打乱后梯度更鲁棒。
+- 训练 `shuffle=True`,验证/测试 `shuffle=False`(要可复现)。
+
+#### 3. 为什么需要 Dataset 抽象类?——接口约定
+
+如果你自己写加载数据:
+```python
+for i in range(len(images)):
+    img = images[i]
+    label = labels[i]
+    ...  # 训练
+```
+
+问题:shuffle 怎么写?多进程加载怎么写?换数据集要不要重写训练代码?
+
+**Dataset 抽象类**就是 PyTorch 给你的**接口约定**:
+```python
+class Dataset:
+    def __len__(self): ...        # 数据集多大
+    def __getitem__(self, i): ... # 给索引取一条样本
+```
+
+只要实现这两个方法,PyTorch 的 DataLoader / 训练循环就能用。**不同数据集(图片 / 文本 / CSV)走同一个 API**。
+
+这就是"面向接口编程":不管你数据怎么存,我只要你能按索引取样本。
+
+#### 4. 为什么需要 DataLoader?——它替你干了这些脏活
+
+不用 DataLoader,你得自己写:
+- 把 N 个样本 stack 成 batch(`torch.stack`)
+- 每个 epoch 前 shuffle 索引
+- 多进程并行加载(Windows 上很坑)
+- 把 batch 搬到 GPU(配合 `pin_memory`)
+
+用 DataLoader 一行搞定:
+```python
+loader = DataLoader(ds, batch_size=32, shuffle=True, num_workers=4, pin_memory=True)
+```
+
+**DataLoader = batch 打包 + shuffle + 多进程 + GPU 预取,四合一**。
+
+#### 5. 为什么需要 transform?——把世界变成 tensor
+
+神经网络吃 **tensor**(数字),不吃 PIL 图 / numpy 数组 / 文本字符串。
+
+transform 的工作:
+1. **格式转换**:PIL Image → tensor(`ToTensor()`),numpy → tensor
+2. **数值归一**:像素 [0, 255] → [0, 1](`ToTensor()` 顺手做),再压到"零均一方差一"(`Normalize()`)
+3. **数据增强**(训练时):随机水平翻转、随机裁剪——让模型见到更多变体,不容易过拟合
+
+**Compose 就是流水线**:把多个 transform 串起来,上一个的输出当下一个的输入。
+
+```python
+transforms.Compose([
+    Resize((32, 32)),         # 1. 缩到 32x32
+    RandomHorizontalFlip(),   # 2. 随机左右翻转(数据增强)
+    ToTensor(),                # 3. 转 tensor + 归一到 [0, 1]
+    Normalize(mean, std),      # 4. 标准化
+])
+```
+
+顺序很关键——**ToTensor 必须先于 Normalize**(Normalize 算的是 tensor,PIL 上算不了)。
+
+#### 6. train / val / test 三件套
+
+| 集合 | 干什么 | 调完超参还能再用吗 |
+|------|--------|----------------|
+| **train** | 训练模型 | - |
+| **val**(验证) | 调超参(选模型、选 lr、选增强) | ✅ 可以 |
+| **test**(测试) | 最终评估,**只用一次** | ❌ 用了就"污染" |
+
+**严格流程**:train 训 → val 调 → test 终极评估,test 结果发完论文就再也不能用 test 调任何东西。
+
+教学项目通常只 train + test(把 test 当 val 用),发论文时再补一个 hold-out test。
+
+#### 7. 学完再看 3.2.1
+
+3.2.1 那张数据流图你应该能看懂了:
+- 硬盘数据 → Dataset → 样本 → DataLoader → batch → 训练循环
+- 每个组件只管一段,合起来就是完整流水线
+
+如果还有名词不懂,继续往下读。**读 example 时回头查这一节**,比硬啃理论更有效。
+
+---
+
 ### 3.2.1 整个数据流的层级
 
 ```
