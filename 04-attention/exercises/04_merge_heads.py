@@ -1,4 +1,4 @@
-# @File     : merge_heasds.py
+# @File     : 04_merge_heads.py
 # @Time     : 2026/6/12 21:14
 import torch
 

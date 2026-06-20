@@ -259,8 +259,16 @@ def matmul_demo(embeddings: torch.Tensor) -> dict[str, Any]:
     }
 
 
-def _projection_weights(hidden_dim: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """构造固定投影矩阵，保证课堂输出稳定。"""
+def projection_weights(hidden_dim: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """构造固定投影矩阵 (Wq, Wk, Wv),保证课堂输出稳定。
+
+    这是公开函数(无下划线前缀),因为 examples/02_mask_compare.py
+    需要在外部脚本里独立构造 Q/K/V 来打印权重矩阵。
+
+    三个矩阵的设计意图:
+        - Wq 使用单位矩阵:方便学生看懂,Q 基本保留原始 embedding
+        - Wk / Wv 是固定矩阵:每次运行输出一致,课堂上不用解释随机数导致的差异
+    """
     # Wq 使用单位矩阵，方便学生看懂：Q 基本保留原始 embedding。
     scale = torch.eye(hidden_dim, dtype=torch.float32)
     w_q = scale
@@ -303,7 +311,7 @@ def manual_attention_demo(
         6. 权重乘 V 得到上下文向量
     """
     hidden_dim = embeddings.shape[-1]
-    w_q, w_k, w_v = _projection_weights(hidden_dim)
+    w_q, w_k, w_v = projection_weights(hidden_dim)
 
     # 通过矩阵乘法得到 Q、K、V。
     # 这里不是训练参数，只是固定投影，用来讲清注意力公式。
@@ -351,7 +359,7 @@ def compare_sdpa_with_manual(
 ) -> dict[str, Any]:
     """对比官方 scaled_dot_product_attention 和手写版本。"""
     hidden_dim = embeddings.shape[-1]
-    w_q, w_k, w_v = _projection_weights(hidden_dim)
+    w_q, w_k, w_v = projection_weights(hidden_dim)
 
     q = embeddings @ w_q
     k = embeddings @ w_k

@@ -5,7 +5,7 @@
        - 每个 token 只能关注自己和之前的 token
        - 位置 i 不能看到位置 i+1, i+2, ...
     2. 形状: (seq, seq) 的 bool 矩阵,上三角为 False
-    3. 把它和 02_demo.py 第 7 节的手写 attention 组合,
+    3. 把它和 01_demo.py 第 7 节的手写 attention 组合,
        验证:位置 i 的输出权重,只在 0..i 上非零
 
 提示:

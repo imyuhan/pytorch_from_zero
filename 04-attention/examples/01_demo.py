@@ -2,7 +2,7 @@ r"""
 04-attention 章节的端到端 demo：按顺序跑完 9 个小实验。
 
 运行方式(从项目根目录):
-    .venv\Scripts\python.exe 04-attention\examples\02_demo.py
+    .venv\Scripts\python.exe 04-attention\examples\01_demo.py
 
 课堂定位：
     本节承接 01-tensor-basics 的 QKV shape 铺垫，重点练习维度变换
