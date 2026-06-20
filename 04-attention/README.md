@@ -44,9 +44,9 @@
 
 | 文件 | 主题 |
 |------|------|
-| `examples/02_demo.py` | 端到端跑完 9 个小实验 |
-| `examples/03_mask_compare.py` | 改 `valid_mask` 后,肉眼对照 3 条样本的注意力权重矩阵 |
-| `examples/04_batch_size_compare.py` | 用 1 / 2 / 3 条样本跑一遍,看 batch_size 变化时 shape 怎么动 |
+| `examples/01_demo.py` | 端到端跑完 9 个小实验 |
+| `examples/02_mask_compare.py` | 改 `valid_mask` 后,肉眼对照 3 条样本的注意力权重矩阵 |
+| `examples/03_batch_size_compare.py` | 用 1 / 2 / 3 条样本跑一遍,看 batch_size 变化时 shape 怎么动 |
 | `src/attention_tools.py` | 课堂演示用的工具函数库(load_lesson_data、split_heads、手写 SDPA 等) |
 | `data/lesson_data.json` | 3 条课堂样本(A001/A002/A003),第 2、3 条带 `[PAD]` 用于演示 mask |
 
@@ -82,9 +82,9 @@ print(context.shape)  # torch.Size([2, 4, 8])
 ## 学习顺序
 
 1. **先把 01 章 `05_transformer_qkv.py` 跑一遍**,建立 `(B, S, H) @ (H, H) → (B, S, H)` 的 shape 直觉
-2. 跑 `examples/02_demo.py` —— 9 节小实验每节都很短,跟着输出读 shape
-3. 跑 `examples/03_mask_compare.py` —— 把注意力权重矩阵直接打出来,肉眼对照 token 看权重流向
-4. 跑 `examples/04_batch_size_compare.py` —— 体会 batch 维只动最外层
+2. 跑 `examples/01_demo.py` —— 9 节小实验每节都很短,跟着输出读 shape
+3. 跑 `examples/02_mask_compare.py` —— 把注意力权重矩阵直接打出来,肉眼对照 token 看权重流向
+4. 跑 `examples/03_batch_size_compare.py` —— 体会 batch 维只动最外层
 5. 进入 05 看预训练模型怎么"用别人训好的 backbone"
 
 ## 练习
