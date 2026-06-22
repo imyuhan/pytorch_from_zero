@@ -154,6 +154,19 @@ print(w.grad, b.grad)   # ∂loss/∂w,∂loss/∂b 都有了
 
 这就是 **define-by-run**(动态图)的威力 —— 你的 Python 代码怎么跑,计算图就怎么长。
 
+#### 正向模式 vs 反向模式(两种自动求导方向)
+
+autograd 在内部支持两种**遍历计算图**的方向,功能一样,只是遍历策略不同:
+
+| 模式 | 方向 | 适用 | DL 里用得多吗 |
+|------|------|------|:------:|
+| **反向模式**(reverse-mode) | 从 loss 反向往参数传 | loss=标量、参数 N 很大 | ✅ 主力 |
+| **正向模式**(forward-mode) | 顺着前向,边算边求导 | 参数少、输出多的函数 | ❌ 罕见 |
+
+PyTorch 默认就是**反向模式**——也就是 2.2.0.6 说的"反向传播"。原因上一节讲过:N 个参数、M=1 个 loss 时,反向模式只需一次扫,正向模式要 N 次扫,根本不可行。
+
+> 极少数场景(物理仿真、某些元学习)需要"对参数求导"而不是"对 loss 求导",这时正向模式反而更快——这是 `torch.autograd.forward_ad` 做的事,本章用不上,知道有这条路就行。
+
 ### 2.2.2 三件套:requires_grad / grad / grad_fn
 
 | 属性 | 在哪 | 含义 |
@@ -197,8 +210,10 @@ loss_per_sample.backward(gradient=torch.ones_like(loss_per_sample))
 更常见的做法是**先 mean / sum**:
 ```python
 loss = loss_fn(y, target).mean()  # 标量
-loss.backward()
+    loss.backward()
 ```
+
+> 这里 `loss_fn(y, target).mean()` 当 loss 用,常见选 `nn.MSELoss()`。MSE(均方误差)是回归任务的标准损失,公式 `mean((y_pred - y_true)²)` —— **预测值和真实值每个位置差的平方,再求平均**。直观:差距越大、平方后惩罚越重;多个样本平均掉 batch 维度,得到一个标量。02 章所有例子都用它,是因为它公式简单、求导容易、便于手算梯度。后续章节分类任务会换成 `nn.CrossEntropyLoss()`(1.4.5.4 提过),MSE 留作回归默认。
 
 ### 2.2.5 梯度累积与 `zero_grad()`
 
@@ -474,6 +489,12 @@ torch.set_grad_enabled(True)    # 再打开
 ### 2.4.6 `retain_graph` 参数
 
 默认情况下,反向传播完计算图就**释放**了,二次 `.backward()` 会报错:
+
+**为什么要默认释放?** 反向传播算完后,中间节点的激活值、op 的反向函数都还要占显存。DL 模型一张图的中间激活能占好几 GB,算完就立刻释放是默认行为。
+
+注意一个例外:**叶子节点的 `.grad` 默认会被保留**(因为这是优化器要拿的东西),中间节点的 grad_fn 和激活值才被释放。
+
+所以 02 章的所有例子里,`w.grad` 反向之后还能 `print` 出来——叶子被保留;但如果你想对同一个 loss 二次 `.backward()`,会报错,因为中间图已经被清了。
 
 ```python
 loss.backward()
