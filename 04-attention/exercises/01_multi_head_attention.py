@@ -11,7 +11,7 @@
     - 合头用 transpose + contiguous + reshape
     - mask 从 (batch, seq) 升到 (batch, 1, 1, seq) 才能广播
 
-参考答案: 见 doc/04-attention.md 第 4.4.1.10 节
+参考答案: 见 doc/04-attention.md 第 4.5.1.10 节
 """
 import torch
 import torch.nn.functional as F
@@ -19,7 +19,7 @@ import torch.nn.functional as F
 
 def multi_head_attention(x: torch.Tensor, num_heads: int, valid_mask=None) -> torch.Tensor:
     # TODO: 在这里实现多头注意力
-    raise NotImplementedError("请按 doc/04-attention.md 第 4.4.1.10 节实现多头注意力")
+    raise NotImplementedError("请按 doc/04-attention.md 第 4.5.1.10 节实现多头注意力")
 
 
 if __name__ == "__main__":

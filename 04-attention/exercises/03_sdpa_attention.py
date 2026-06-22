@@ -9,7 +9,7 @@
     - F.scaled_dot_product_attention 接受 attn_mask=float mask(0 / -inf)
     - 也接受 is_causal=True 参数(等价于下三角 mask)
 
-参考答案: 见 doc/04-attention.md 第 4.4.1.8 节
+参考答案: 见 doc/04-attention.md 第 4.5.1.8 节
 """
 import torch
 import torch.nn.functional as F
@@ -27,7 +27,7 @@ def sdpa_attention(x: torch.Tensor, w_q, w_k, w_v, valid_mask: torch.Tensor) -> 
         context: (batch, seq, hidden)
     """
     # TODO: 用 F.scaled_dot_product_attention 实现
-    raise NotImplementedError("请按 doc/04-attention.md 第 4.4.1.8 节用 F.scaled_dot_product_attention 实现")
+    raise NotImplementedError("请按 doc/04-attention.md 第 4.5.1.8 节用 F.scaled_dot_product_attention 实现")
 
 
 if __name__ == "__main__":

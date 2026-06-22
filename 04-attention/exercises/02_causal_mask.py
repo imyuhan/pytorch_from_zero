@@ -13,7 +13,7 @@
     - 把 causal_mask 和 valid_mask 做 AND
     - masked_fill(~combined_mask, -inf)
 
-参考答案: 见 doc/04-attention.md 第 4.3.8 节
+参考答案: 见 doc/04-attention.md 第 4.4.8 节
 """
 import torch
 
