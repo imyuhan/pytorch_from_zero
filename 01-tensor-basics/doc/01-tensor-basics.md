@@ -476,6 +476,356 @@ x = x.to(memory_format=torch.channels_last)
 
 `torchvision` 训练时可以传 `memory_format=torch.channels_last` 给模型提升速度,这是 **PyTorch 2.0+ 的官方优化建议**。
 
+### 1.4.5 深度学习核心概念速览
+
+这一节是术语速查表,每条把概念本身讲清楚。学 DL 时随时翻——后面章节展开时这里只做回顾。
+
+> 命名约定:小标题里的"术语(英文)"格式只是为了查表时好搜,文中叙述只用中文。
+
+---
+
+#### 1) 模型(Model)
+
+把输入映射到输出的**可学习函数**。结构(几层、用什么激活)由人写,内部参数由数据训出来。
+
+```python
+import torch.nn as nn
+
+class MyModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = nn.Linear(784, 10)   # 一层线性变换:输入 784 维 → 输出 10 维
+    def forward(self, x):
+        return self.linear(x)
+
+model = MyModel()
+y = model(x)        # 触发 forward,得到预测
+```
+
+PyTorch 里模型就是一个继承 `nn.Module` 的类,`model(x)` 是入口。
+
+---
+
+#### 2) 参数 / 权重(Parameters / Weights)
+
+模型里**会被训练调整的数字**,通常是矩阵或向量。训练的本质 = 找一组让 loss 最小的参数。
+
+```python
+m = MyModel()
+for p in m.parameters():
+    print(p.shape)
+```
+
+参数数量怎么算:`nn.Linear(in, out)` 含 `in*out + out` 个(权重 + 偏置)。`nn.Linear(784, 10)` 就是 `784*10 + 10 = 7850`。
+
+注意:`nn.Parameter` 是 `Tensor` 的子类,会自动加入 `model.parameters()`。普通 `torch.tensor` 不会,要手动包。
+
+---
+
+#### 3) 前向传播(Forward Pass)
+
+输入顺着模型**算一遍**得到预测值。也叫"推理",只是训练时推理结果还要拿去算 loss。
+
+```python
+x = torch.randn(32, 784)   # batch_size=32
+logits = model(x)          # (32, 10)
+```
+
+`model(x)` 等价于调用 `__call__`,按 `forward` 定义的顺序计算。前向传播**不学习**,参数没动——训练是前向 + 反向 + 更新三步走。
+
+---
+
+#### 4) 损失函数(Loss Function)
+
+衡量**预测值和真实值的差距**,输出一个**标量**(越小越好)。把"模型答得对不对"翻译成一个数,优化器才好调参。
+
+```python
+criterion = nn.CrossEntropyLoss()    # 多分类(接受 logits + 类别索引)
+# criterion = nn.MSELoss()         # 回归
+# criterion = nn.BCEWithLogitsLoss()  # 二分类
+
+logits = model(x)                   # (B, num_classes),未归一化的分数
+target = torch.tensor([3, 7, 1])    # (B,),每个样本的真实类别索引
+loss = criterion(logits, target)    # 标量
+```
+
+要点:loss 必须是**标量**才能 `.backward()`。
+
+---
+
+#### 5) 反向传播(Back Propagation, Backprop)
+
+从 loss 出发,**用链式法则**算出每个参数对 loss 的影响(梯度)。一反向扫,效率极高。
+
+```python
+loss = criterion(model(x), target)
+loss.backward()   # 计算图里所有叶子节点的 .grad 被填上
+```
+
+为什么叫"反向":梯度从 loss 往参数方向传,数学上等价于链式法则的**反向模式自动微分**——对 N 个参数、M=1 个 loss 的场景,反向模式只需一次扫;正向模式要 N 次扫。
+
+---
+
+#### 6) 梯度(Gradient)
+
+损失对参数的**偏导数**。
+- **方向**:负梯度方向 = loss 下降最快的方向
+- **大小**:在那个方向上"动多少合适"的参考
+
+参数 tensor 上的 `.grad` 属性就是它。
+
+```python
+for p in model.parameters():
+    print(p.grad)        # 反向传播后被填上,形状跟参数一样
+```
+
+要点:`tensor.grad` 是属性不是方法,没有括号。初始是 None,backward 后是 Tensor。
+
+---
+
+#### 7) 优化器(Optimizer)
+
+**根据梯度更新参数**的算法。最朴素的形式是 `θ ← θ - lr·grad`(SGD);更聪明的(如 Adam)会自适应调节每个参数的学习率。
+
+```python
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+# 训练循环三步口诀
+optimizer.zero_grad()   # 1. 清空上轮梯度
+loss = criterion(model(x), target)
+loss.backward()         # 2. 算梯度
+optimizer.step()        # 3. 按梯度更新参数
+```
+
+常见选择:
+| 优化器 | 特点 |
+|--------|------|
+| SGD | 简单、可解释,CV 经典 |
+| SGD + momentum | 加惯性,冲过小坑 |
+| Adam | 自适应 lr,NLP / Transformer 首选 |
+| AdamW | Adam + 解耦权重衰减,大模型标配 |
+
+---
+
+#### 8) 学习率(Learning Rate, lr)
+
+`optimizer.step()` 一次迈多大。**最重要的超参数**。
+
+```python
+optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+```
+
+经验起点:
+- SGD: 0.01 ~ 0.1
+- Adam / AdamW: 1e-4 ~ 1e-3
+
+直觉:太大 → 震荡不收敛;太小 → 训练龟速。
+
+---
+
+#### 9) Epoch / Batch / Iteration
+
+数据被切碎喂给模型的三个粒度单位。
+
+| 单位 | 含义 |
+|------|------|
+| **Batch Size** | 一块多少样本 |
+| **Iteration** | 跑过几个 batch |
+| **Epoch** | 全部样本过一遍 |
+
+直觉:一本书 = 训练集。Batch = 一次读 10 页;Iteration = 读完 10 页这一动作;Epoch = 把书从头到尾读完一遍。
+
+例:10000 样本 + `batch_size=100` → 1 epoch = 100 iteration;10 epoch = 1000 iteration。
+
+```python
+loader = DataLoader(dataset, batch_size=100, shuffle=True)
+for epoch in range(10):          # 10 个 epoch
+    for x, y in loader:          # 每个 epoch 内 100 个 iteration
+        ...
+```
+
+---
+
+#### 10) 训练集 / 验证集 / 测试集(Train / Val / Test)
+
+数据三件套,**绝不能混**。
+
+| 集合 | 用途 | 模型能不能看到 |
+|------|------|------------|
+| 训练集(Train) | 训参数 | ✅ |
+| 验证集(Val) | 调超参、早停 | ❌ 只能评估 |
+| 测试集(Test) | 最终汇报 | ❌ 只能用一次 |
+
+```python
+total = torch.utils.data.TensorDataset(X, y)
+n = len(total)
+train_set, val_set, test_set = torch.utils.data.random_split(
+    total, [int(n*0.7), int(n*0.15), int(n*0.15)]
+)
+```
+
+纪律:验证集只能用来调超参,测试集只能用一次——除非你确定要的就是这个最终成绩,否则别回头再基于 test 调模型。
+
+---
+
+#### 11) 过拟合 / 欠拟合(Overfitting / Underfitting)
+
+模型"学得太死"或"学得太浅"两种病。
+
+| 现象 | 训练集 | 验证集 |
+|------|:------:|:------:|
+| 欠拟合 | 差 | 差 |
+| 刚好 | 好 | 好 |
+| 过拟合 | 很好 | 变差 |
+
+直观对比:
+
+```
+loss
+ ↑
+ │   训练loss        验证loss
+ │     \              /
+ │      \            / ← 验证loss反弹 = 过拟合起点
+ │       \          /
+ │        \________/
+ └──────────────────────→ epoch
+```
+
+对抗手段一览:
+
+| 现象 | 常用办法 |
+|------|---------|
+| 欠拟合 | 加容量(更宽/更深的模型)、训久点、换更强架构 |
+| 过拟合 | 加数据、数据增强、Dropout、权重衰减、早停、减小模型 |
+
+```python
+# Dropout(训练时随机丢一半神经元,推理时关闭)
+self.dropout = nn.Dropout(p=0.5)
+
+# 权重衰减 / L2 正则(惩罚大权重,λ 越大越压权重)
+optimizer = torch.optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
+```
+
+---
+
+#### 12) 反向传播依赖的"基础三件套"——`requires_grad` / 计算图 / 反向模式自动微分
+
+`loss.backward()` 一行求所有参数的梯度,背后是这三条在合作。
+
+##### 12.1 `requires_grad` —— autograd 的开关
+
+tensor 上的布尔标记。打开 = 这个 tensor 的所有运算会被 PyTorch"录音"。
+
+```python
+x = torch.randn(3, requires_grad=True)
+y = x * 2
+y.requires_grad   # True  ← 自动传播
+
+# 模型参数默认就是 True
+# 临时关闭(推理 / 算指标时省内存)
+with torch.no_grad():
+    y = model(x)   # 不建图
+```
+
+##### 12.2 计算图(Computational Graph) —— 录音的产物
+
+前向时偷偷建的一张**有向无环图(DAG)**。节点是 tensor,边是运算(`+` `@` `ReLU` 等)。
+
+- 为什么"有向":运算有顺序
+- 为什么"无环":没有循环,否则图永远建不完
+
+```python
+a = torch.tensor(2.0, requires_grad=True)
+b = a * 3        # 中间节点
+c = b ** 2       # 中间节点
+loss = c.sum()
+# 这时图: a → b → c → loss
+loss.backward()
+print(a.grad)    # tensor(36.)  ← dloss/da = 2·3·3·a = 36
+```
+
+只有**叶子节点**(用户创建、`requires_grad=True` 的)有 `.grad`,中间节点没有。图在 `backward()` 后被释放(除非 `retain_graph=True`)。
+
+##### 12.3 反向模式自动微分(Reverse-mode Autodiff)
+
+从 loss 出发**反向**遍历计算图,用链式法则逐节点求梯度。
+
+为什么选"反向":DL 模型常有上亿参数、但输出只有 1 个 loss。反向模式在这种"M=1 ≪ N"场景下,只需一次反向扫就能拿到所有 N 个梯度,计算量 ≈ 一次前向;正向模式要 N 次扫。
+
+PyTorch 里这步对用户透明——`loss.backward()` 内部就是反向模式。
+
+##### 三件套怎么联动
+
+```
+requires_grad=True
+        ↓ 打开麦克风
+前向传播(model(x))
+        ↓ 边算边建图
+计算图(DAG)
+        ↓ loss.backward() 触发
+反向模式自动微分
+        ↓ 沿图反向遍历 + 链式法则
+每个叶子节点的 .grad
+        ↓ optimizer.step()
+参数更新
+```
+
+具体推导、`backward()` 报错排查、`detach()` vs `no_grad` 的区别 —— 全在 02 章展开。
+
+---
+
+#### 一张图把 12 条串起来(训练循环全景)
+
+```
+┌─────────────────────────────────────────────────────┐
+│  数据准备                                           │
+│  训练集 → DataLoader 切 batch                       │
+└─────────────────────┬───────────────────────────────┘
+                      ↓
+┌─────────────────────────────────────────────────────┐
+│  训练模式: model.train()                            │
+│                                                     │
+│  for epoch in range(num_epochs):                    │
+│      for x, target in loader:                       │
+│                                                     │
+│          ① optimizer.zero_grad()  ← 清梯度          │
+│          ② pred = model(x)         ← 前向传播       │
+│          ③ loss = criterion(pred, target)  ← 损失   │
+│          ④ loss.backward()          ← 反向传播       │
+│          ⑤ optimizer.step()         ← 更新参数       │
+│                                                     │
+└─────────────────────┬───────────────────────────────┘
+                      ↓
+┌─────────────────────────────────────────────────────┐
+│  验证模式: model.eval()                             │
+│      with torch.no_grad():  ← 省内存                │
+│          val_loss / val_acc                         │
+└─────────────────────────────────────────────────────┘
+                      ↓
+              最终:测试集评估一次
+```
+
+具体实现在 06-cnn/04_train_loop.py 和 07-experiments/02_train_mnist.py,先有个全局观。
+
+---
+
+#### 速查表
+
+| # | 概念 | 一句话 | PyTorch 关键符号 |
+|:-:|------|--------|----------------|
+| 1 | 模型 | 输入→输出的可学习函数 | `nn.Module` |
+| 2 | 参数 | 模型里会被训练的数字 | `model.parameters()` |
+| 3 | 前向传播 | 顺着模型算一遍 | `model(x)` |
+| 4 | 损失函数 | 衡量预测和真实的差距 | `nn.CrossEntropyLoss()` |
+| 5 | 反向传播 | 从 loss 反算梯度 | `loss.backward()` |
+| 6 | 梯度 | loss 对参数的偏导 | `param.grad` |
+| 7 | 优化器 | 按梯度更新参数 | `torch.optim.Adam(...)` |
+| 8 | 学习率 | 一步迈多大 | `lr=1e-3` |
+| 9 | Epoch/Batch/Iter | 数据量单位 | `DataLoader(batch_size=N)` |
+| 10 | 训练/验证/测试集 | 数据三件套 | `random_split(...)` |
+| 11 | 过拟合/欠拟合 | 学太死 / 学太浅 | `Dropout`, `weight_decay` |
+| 12 | requires_grad/计算图/反向autodiff | 反向传播的三件套 | `requires_grad=True`, `loss.backward()` |
+
 ## 1.5 学习自检(对应 14 条目标)
 
 1. ✅ 能口述 Tensor / shape / dtype / device / requires_grad / CPU / GPU / CUDA / 显存 / 梯度
