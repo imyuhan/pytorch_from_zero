@@ -1,7 +1,7 @@
 """04-3 练习:用 F.scaled_dot_product_attention 重写手写 attention
 
 目标:
-    1. 抄一遍 01_demo.py 第 7 节的 manual_attention_demo,但内部用 F.scaled_dot_product_attention
+    1. 抄一遍 examples/07_manual_attention.py 的手写流程,但内部用 F.scaled_dot_product_attention
     2. 输出形状要和手写版本一致
     3. 思考题: 官方版本比手写快多少?为什么?
 
@@ -9,7 +9,7 @@
     - F.scaled_dot_product_attention 接受 attn_mask=float mask(0 / -inf)
     - 也接受 is_causal=True 参数(等价于下三角 mask)
 
-参考答案: 见 doc/04-attention.md 第 4.5.1.8 节
+参考答案: 见 doc/04-attention.md 第 4.5.8 节
 """
 import torch
 import torch.nn.functional as F
