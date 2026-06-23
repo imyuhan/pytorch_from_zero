@@ -353,6 +353,52 @@ print(w.grad)               # 4.0  ← 干净的值
 
 `tensor.zero_()` 是 in-place 把所有元素清零。下划线后缀 = in-place 版本。
 
+#### 这里累加的本质:是 PyTorch 的"行为",不是数学的"必须"
+
+> ⚠️ **一个容易误解的点**:看到 `y1 = w**2`、`y2 = w**3` 共用同一个 `w`,有人会以为"w 出现在不同式子里所以梯度必须累加"。**这是错的。**
+
+`w` 出现在多个式子 ≠ 梯度累加。**累加的真原因是:你调用了两次 `backward()`,而 PyTorch 在设计时选择把第二次的梯度加到第一次上面。**
+
+对比下面两个例子,数学结构几乎一样,结果完全不同:
+
+```python
+# 例 A:两次 backward() → 累加
+w = torch.tensor(2.0, requires_grad=True)
+y1 = w ** 2; y1.backward()      # w.grad = 4
+y2 = w ** 3; y2.backward()      # w.grad = 4 + 12 = 16  ← 累加
+print(w.grad)                   # 16.0
+```
+
+```python
+# 例 B:同一个 loss 表达式里 w 出现两次 → 不累加,而是按链式法则合并
+w = torch.tensor(2.0, requires_grad=True)
+y1 = w ** 2
+y2 = w ** 3
+loss = y1 + y2                  # loss = w^2 + w^3,w 在这里出现两次
+loss.backward()                 # 一次 backward
+print(w.grad)                   # 12.0 = 2w + 3w^2 = 4 + 12
+```
+
+注意例 B 里 `w` 同样在 `w**2` 和 `w**3` 两个式子里都出现,**但只调用了一次 `backward()`,结果不是累加,是一次链式法则求导出来的"全导数"**(全导数公式:`∂loss/∂w = ∂y1/∂w + ∂y2/∂w`,这条加法是数学上必须加的)。
+
+那例 A 累加是怎么回事?它其实是"两个独立 backward 各自往 `w.grad` 上写一份"——只不过 PyTorch 的 `.grad` 默认用 `+=` 而不是 `=`。这种累加**纯粹是 PyTorch 的实现行为**,数学上没有任何"必须"。
+
+#### 训练循环里为什么会累加?——这是设计选择,不是 bug
+
+实际训练时,你**每读一个 batch 就会 backward 一次**,梯度按 batch 累加才有意义(等价于大 batch)。所以 PyTorch 让 `.grad` 默认累加。
+
+但**如果你手动攒 batch**(gradient accumulation,显存不够时的常用技巧),你**就是希望它累加**——攒 N 个 batch 再 `optimizer.step()`,这时千万别 `zero_grad`。
+
+#### 一句话总结
+
+| 场景 | 累加吗 | 原因 |
+|---|---|---|
+| 同一个 loss, `w` 在里面出现多次 | 否 | 一次 `backward()` 按链式法则求全导数(数学合并) |
+| 多次 `backward()` 之间没 `zero_grad` | 是 | PyTorch 的 `.grad` 默认用 `+=`(实现行为) |
+| 训练循环忘 `zero_grad` | 是 | 每 batch 的梯度累到下一 batch,等效 batch 翻倍 |
+
+**所以 03 那个例子的累加,是"两次 `backward()` 没清零"导致的,不是"`w` 出现在多个式子里"导致的**——这两件事容易混,但要分清。
+
 ### 2.3.4 `04_no_grad.py` — 推理模式
 
 ```python
