@@ -1,4 +1,4 @@
-"""练习 06:requires_grad 与 backward
+"""练习 01:requires_grad 与 backward
 
 要求:
   1. 创建 w = torch.tensor(3.0, requires_grad=True)
@@ -9,3 +9,7 @@
 import torch
 
 # 你的代码 ↓
+w = torch.tensor(3.0,requires_grad=True)
+y = w**3 + 2*w + 1
+y.backward()
+print(f"w.grad = {w.grad}")
