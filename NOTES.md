@@ -401,6 +401,126 @@ $$
 
 ---
 
+### 2. 点积与方差的三个核心推导(scaled dot-product 为啥 work)
+
+把上面那个"为什么除 sqrt(d_k)"拆成三步,**每一步都能用一行数学 + 一段蒙特卡洛验证**。
+
+#### (1) 点积后每一项怎么来 —— `q · k`
+
+`q` 和 `k` 都是 d_k 维向量,点积 = 对应元素相乘再全部加起来:
+
+$$
+s = q \cdot k = \sum_{i=1}^{d_k} q_i \cdot k_i
+$$
+
+**每一项**就是 `q_i * k_i`,共 d_k 个乘积相加。**和矩阵元素个数(seq_len²)无关**。
+
+具体例子(d_k=4):
+
+```
+q = [1, 2, 3, 4], k = [2, 1, 0, 1]
+s = 1*2 + 2*1 + 3*0 + 4*1 = 2 + 2 + 0 + 4 = 8   <- 4 项加和
+```
+
+> **易混点**:9 个 scores(s=3 时 `q @ k^T` 得到 3×3 矩阵)是 **scores 矩阵的元素个数**;
+> d_k 个项是 **单个点积内部的累加项数**。两个"项"不是一个维度。
+
+#### (2) 每一项的方差怎么变 —— `Var(q·k) = d_k`
+
+设 q、k 元素独立、均值 0、方差 1(模型初始化后或 LayerNorm 后的常态):
+
+**第一步**:单项 `q_i * k_i` 的方差
+
+独立零均值随机变量乘积的方差 = 各自动方差的乘积:
+
+$$
+\text{Var}(q_i \cdot k_i) = \text{Var}(q_i) \cdot \text{Var}(k_i) = 1 \cdot 1 = 1
+$$
+
+**第二步**:d_k 个独立项加和
+
+独立随机变量和的方差 = 方差之和:
+
+$$
+\text{Var}(q \cdot k) = \sum_{i=1}^{d_k} \text{Var}(q_i \cdot k_i) = \underbrace{1 + 1 + \dots + 1}_{d_k \text{ 个}} = d_k
+$$
+
+**结论**:点积的方差 = d_k,d_k 越大,点积数值越炸。
+
+蒙特卡洛验证:
+
+```python
+import torch, math
+
+d_k = 64
+N = 100000
+q = torch.randn(N, d_k)
+k = torch.randn(N, d_k)
+
+scores = (q * k).sum(dim=-1)        # N 个点积
+print(f"Var(q·k) ≈ {scores.var():.2f}")    # ≈ 64 = d_k
+```
+
+#### (3) 除以 sqrt(d_k) 后方差怎么变 —— 用到方差的齐次性
+
+方差对常数缩放的关系:
+
+$$
+\text{Var}(c \cdot X) = c^2 \cdot \text{Var}(X)
+$$
+
+**直觉**:x 上下波动 1 单位,cx 波动 c 单位,但方差衡量的是"平方波动",所以是 c² 倍。
+
+套到 attention 缩放上(`c = 1/√d_k`):
+
+$$
+\text{Var}\!\left(\frac{X}{\sqrt{d_k}}\right) = \frac{1}{d_k} \cdot \text{Var}(X) = \frac{1}{d_k} \cdot d_k = 1
+$$
+
+**√d_k 是从 `Var(X/c) = Var(X)/c² = 1` 解出来的唯一正解**,d_k 不是 d_k、不是 d_k²。
+
+| 缩放因子 c | Var(X/c) | 后果 |
+|---|---|---|
+| d_k | 1/d_k | 缩过头,scores 太小,softmax 趋近均匀 |
+| **√d_k** | **1** | **刚好,softmax 工作正常** ✓ |
+| 不除 | d_k | softmax 趋近 one-hot,梯度消失 |
+
+蒙特卡洛终极验证:
+
+```python
+import torch, math
+
+d_k = 64
+N = 100000
+q = torch.randn(N, d_k)
+k = torch.randn(N, d_k)
+X = (q * k).sum(dim=-1)
+
+print(f"Var(X)        = {X.var():.3f}")                          # ≈ 64
+print(f"Var(X / √d_k) = {(X / math.sqrt(d_k)).var():.3f}")       # ≈ 1  ✓
+print(f"Var(X / d_k)  = {(X / d_k).var():.4f}")                 # ≈ 0.0156
+print(f"Var(X / d_k²) = {(X / d_k**2).var():.6f}")              # ≈ 0.000244
+```
+
+#### 三步串起来(完整链路)
+
+```
+q, k (各元素方差=1)
+       │
+       ▼  对应元素相乘,共 d_k 项加和
+   q · k    ←── Var = d_k(单项乘积方差=1,加和放大到 d_k)
+       │
+       ▼  除以 √d_k(用 Var(cX)=c²Var(X) 反推)
+q · k / √d_k  ←── Var = 1
+       │
+       ▼ softmax
+   注意力权重  ←── 不饱和,梯度健康
+```
+
+**一句话总结**:点积把 d_k 个独立项加和,方差从 1 放大到 d_k;除以 √d_k 利用方差的齐次性 Var(cX)=c²Var(X) 把方差压回 1,softmax 才不会饱和。
+
+---
+
 ### 2. Softmax
 
 把一组任意实数 → 一组概率分布(和为 1,每个值在 0~1)。
