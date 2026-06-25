@@ -581,4 +581,4 @@ loss2.backward()
 
 ## 2.7 下一步
 
-进入 [`05-dataset-dataloader/doc/05-dataset-dataloader.md`](../../05-dataset-dataloader/doc/05-dataset-dataloader.md) 学数据加载。
+进入 [`03-attention/doc/03-attention.md`](../../03-attention/doc/03-attention.md) 学维度变换与注意力矩阵 —— 把 01 章的 `reshape / transpose / matmul` 用到极致,补成完整的 scaled dot-product attention 和多头。

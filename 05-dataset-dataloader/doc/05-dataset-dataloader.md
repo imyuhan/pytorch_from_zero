@@ -483,4 +483,4 @@ xb, yb = next(it)         # 拿下一个
 
 ## 5.7 下一步
 
-进入 [`03-attention/doc/03-attention.md`](../../03-attention/doc/03-attention.md) 学维度变换与注意力矩阵 —— 把 01 章的 QKV shape 流补成完整的 scaled dot-product attention 和多头。
+进入 [`06-pretrained-models/doc/06-pretrained-models.md`](../../06-pretrained-models/doc/06-pretrained-models.md) 学预训练模型 —— torchvision 模型库加载、推理、替换分类头、冻结 backbone。

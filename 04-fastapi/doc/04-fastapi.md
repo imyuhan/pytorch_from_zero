@@ -849,6 +849,7 @@ gunicorn app.api:app -w 4 -k uvicorn.workers.UvicornWorker
 
 ## 4.7 下一步
 
+- 继续学下一章:进入 [`05-dataset-dataloader/doc/05-dataset-dataloader.md`](../../05-dataset-dataloader/doc/05-dataset-dataloader.md) 学数据加载 —— `Dataset` / `DataLoader` / `transforms`。
 - 想接大模型 API:看 [DeepSeek](https://platform.deepseek.com/) / OpenAI / Anthropic 的官方文档
 - 想做 LLM Agent:把 FastAPI 当后端,前面挂一个 Agent 框架(比如 LangChain / LlamaIndex)
 - 想做更复杂的项目:加数据库(SQLAlchemy + SQLite/PostgreSQL)、加认证(JWT)、加前端(React / Vue)
