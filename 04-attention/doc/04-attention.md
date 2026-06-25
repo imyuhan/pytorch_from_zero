@@ -836,6 +836,91 @@ def manual_attention(embeddings, valid_mask):
 
 01 章只演示了步骤 2 的 `Q @ K^T → (B, S, S)` —— 那一步得到的**还不是注意力权重**,只是未缩放、未 softmax、未 mask 的原始分数。本章把剩下 4 步全部补齐,才是完整的注意力。
 
+#### 4.5.7.x 补充:causal mask(下三角 mask)——单向注意力
+
+> **这一小节是为 `exercises/03_sdpa_attention.py` 第 10 行的提示"is_causal=True 等价于下三角 mask"补的**。4.5.7 主线走的是**双向 attention**(每个 query 能看到所有 key),causal mask 把它改造成**单向**(query i 只能看到 key ≤ i),用于 GPT 这类自回归模型。
+
+##### 为什么需要 causal mask?
+
+双向 attention(本节主线)在**理解任务**里没问题——比如分类、QA 编码器,BERT 就是双向的。
+
+但**生成任务**(GPT、续写文章、代码补全)有个硬约束:**位置 i 只能基于"它之前的内容"来预测,不能偷看未来**。如果位置 2 在算 attention 时看到了位置 5 的信息,那训练时模型会"作弊"——它其实是从未来偷答案,推理时(看不到未来)就崩了。
+
+所以生成任务需要一个**下三角 mask**把"未来位置"的注意力分数屏蔽掉。
+
+##### 下三角 mask 长什么样?
+
+设 `seq_len = 4`,causal mask 是 4×4 矩阵,**左下三角(包含对角线)为 True,右上三角为 False**:
+
+```text
+       key=0  key=1  key=2  key=3
+query=0  [T     F     F     F  ]     ← query 0 只能看 key 0
+query=1  [T     T     F     F  ]     ← query 1 能看 key 0,1
+query=2  [T     T     T     F  ]     ← query 2 能看 key 0,1,2
+query=3  [T     T     T     T  ]     ← query 3 能看 key 0,1,2,3(全部)
+```
+
+注意对角线是 **True**(query i 能看自己),未来位置是 **False**(会被 -inf 屏蔽)。
+
+PyTorch 一行生成:
+
+```python
+causal_mask = torch.tril(torch.ones(seq_len, seq_len, dtype=torch.bool), diagonal=0)
+# tensor([[ True, False, False, False],
+#         [ True,  True, False, False],
+#         [ True,  True,  True, False],
+#         [ True,  True,  True,  True]])
+```
+
+`torch.tril` 的名字来自 **triangular lower**(下三角),`diagonal=0` 表示对角线**保留**(设为 True)。
+
+##### 和 valid_mask 怎么组合?
+
+实际训练时往往两个 mask **同时存在**:
+
+- `valid_mask`:(B, S) → 屏蔽 padding(本节主线讲的)
+- `causal_mask`:(S, S) → 屏蔽未来(本节讲的)
+
+组合方式:**逻辑 AND**(两个 mask 都是 True 才允许关注)。代码层面通常把 `valid_mask` 升维到 `(B, 1, S)`,然后用广播和 `(S, S)` 的 causal mask 配对:
+
+```python
+# valid_mask: (B, S),True 表示有效 token
+# causal_mask: (S, S),True 表示允许关注
+combined_mask = valid_mask.unsqueeze(1) & causal_mask.unsqueeze(0)  # (B, S, S)
+# 把 True/False 转换成 0 / -inf,再走标准 SDPA 第 4 步
+float_mask = combined_mask.masked_fill(~combined_mask, float("-inf"))
+scores = (q @ k.transpose(-2, -1)) / math.sqrt(d) + float_mask
+weights = torch.softmax(scores, dim=-1)
+```
+
+`exercises/02_causal_mask.py` 的 TODO 就是写这个 `make_causal_mask` 函数 + 跟 valid_mask 拼起来,做完那题再回来看这一小节会顺畅很多。
+
+##### `is_causal=True` 为什么"等价于下三角 mask"?
+
+PyTorch 官方的 `F.scaled_dot_product_attention` 有一个开关:
+
+```python
+F.scaled_dot_product_attention(q, k, v, is_causal=True)   # 自动应用下三角 mask
+# 等价于
+F.scaled_dot_product_attention(q, k, v, attn_mask=causal_float_mask)
+```
+
+两件事是等价的(用同一个下三角 mask),区别在于:
+
+| 写法 | 优点 | 缺点 |
+|---|---|---|
+| `is_causal=True` | 一行搞定;底层走 Flash Attention 优化路径,速度更快、显存更省 | 只能表达 causal,不能加 padding mask |
+| 手写 `attn_mask=...` | 灵活:causal + padding + 自定义 mask 都能组合 | 写法更啰嗦,某些实现下不能走最快的优化 |
+
+**实战建议**:
+- **只有 causal 需求**(纯生成,无 padding 问题)→ 用 `is_causal=True`
+- **有 padding + causal**(实际训练最常见)→ 手写 `attn_mask`,因为 `is_causal` 不接受额外的 padding mask
+- 想知道底层怎么走 → 翻 PyTorch 文档的 "Scaled Dot Product Attention" 章节
+
+##### 一句话总结
+
+> causal mask = **下三角 mask** = 让 query i 只能看到 key ≤ i 的位置,是 GPT 这类自回归模型**防止偷看未来**的硬约束。在 SDPA 里既可以手写 `attn_mask=下三角` 表达,也可以用 `is_causal=True` 走官方开关。
+
 ---
 
 ### 4.5.8 `examples/08_sdpa_compare.py` —— 与官方 SDPA 对齐验证

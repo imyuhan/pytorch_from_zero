@@ -27,7 +27,22 @@ def sdpa_attention(x: torch.Tensor, w_q, w_k, w_v, valid_mask: torch.Tensor) -> 
         context: (batch, seq, hidden)
     """
     # TODO: 用 F.scaled_dot_product_attention 实现
-    raise NotImplementedError("请按 doc/04-attention.md 第 4.5.1.8 节用 F.scaled_dot_product_attention 实现")
+    # 步骤一 求 Q,K,V
+    q = x @ w_q
+    k = x @ w_k
+    v = x @ w_v
+
+    # 官方 SDPA 接受 float mask
+    # 形状:(batch, seq) -> (batch, 1, seq),加在 Q 的 seq 维上,广播到所有 head
+    float_mask = valid_mask.unsqueeze(1)
+    float_mask = float_mask.masked_fill(~float_mask, float("-inf"))
+
+    official_context = F.scaled_dot_product_attention(
+        q, k, v,
+        attn_mask=float_mask,
+        dropout_p=0.0
+    )
+    return official_context
 
 
 if __name__ == "__main__":

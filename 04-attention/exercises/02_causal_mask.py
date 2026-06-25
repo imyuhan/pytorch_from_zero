@@ -15,18 +15,31 @@
 
 参考答案: 见 doc/04-attention.md 第 4.4.8 节
 """
+import math
+
 import torch
 
 
 def make_causal_mask(seq_len: int, device=None) -> torch.Tensor:
     """生成 (seq, seq) 下三角 mask,True 表示允许关注。"""
     # TODO: 在这里实现 causal mask
-    raise NotImplementedError("请用 torch.tril 生成下三角 mask")
+    return torch.tril(
+        torch.ones(seq_len, seq_len, dtype=torch.bool, device=device),
+        diagonal=0,
+    )
 
 
 if __name__ == "__main__":
     m = make_causal_mask(4)
-    print(m)
+    B,S,H = 2,4,4
+    q = torch.randn(B, S, H)
+    k = torch.randn(B, S, H)
+    v = torch.randn(B, S, H)
+
+    scores = q @ k.transpose(-2, -1) / math.sqrt(H)
+    scores = scores.masked_fill(~m,float("-inf"))
+
+    print(scores)
     # 期望:
     # tensor([[ True, False, False, False],
     #         [ True,  True, False, False],
