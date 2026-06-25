@@ -118,7 +118,7 @@ print(f"耗时: {end - start:.4f} 秒")
 
 ## 02-autograd / 浮点限制:`requires_grad` 只能用 float / complex
 
-> 跟 `## 04-attention` 平行的章节(都属大章节,但 autograd 是第二章、attention 是第四章)。这里是 autograd 入门第一个坑。
+> 跟 `## 03-attention` 平行的章节(都属大章节,但 autograd 是第二章、attention 是第四章)。这里是 autograd 入门第一个坑。
 
 PyTorch 的 `requires_grad=True` **只接受浮点( float32 / float64 / float16 )和复数( complex64 / complex128 )类型**,整数 / 布尔会直接报错:
 
@@ -367,7 +367,7 @@ z (grad_fn=SumBackward0)
 >
 > `no_grad` / `detach` 切断的是"开关"和"出身证明",所以 `backward` 走不下去、`grad` 也填不上。三件套一损俱损。
 
-## 04-attention / Attention 4 个关键知识点
+## 03-attention / Attention 4 个关键知识点
 
 学 Attention 时绕不开的几个底层机制,集中整理一下。
 

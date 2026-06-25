@@ -51,11 +51,11 @@ python 00-setup/check_env.py
 | 0 | `00-setup/` | 环境验证 | 1 | – |
 | 1 | `01-tensor-basics/` | 张量基础(创建、索引、设备迁移、形状、内存) | 6 | 5 |
 | 2 | `02-autograd/` | 自动求导(requires_grad / backward / no_grad / 手写 GD) | 5 | 5 |
-| 3 | `03-dataset-dataloader/` | Dataset / DataLoader / transforms | 6 | 5 |
-| 4 | `04-attention/` | 维度变换 / 手写 scaled dot-product attention / 多头拆合头 / 与官方 SDPA 对齐 | 3 | 3 |
-| 5 | `05-pretrained-models/` | torchvision 预训练模型 / 推理 / 替换头 / 冻 backbone | 5 | 4 |
-| 6 | `06-cnn/` | nn.Module / 卷积 / 池化 / 训练 / 验证 / 保存加载 | 7 | 5 |
-| 7 | `07-experiments/` | 工程模板 / 训练 MNIST / CIFAR-10 / ResNet 微调 | 5 | 4 |
+| 3 | `05-dataset-dataloader/` | Dataset / DataLoader / transforms | 6 | 5 |
+| 4 | `03-attention/` | 维度变换 / 手写 scaled dot-product attention / 多头拆合头 / 与官方 SDPA 对齐 | 3 | 3 |
+| 5 | `06-pretrained-models/` | torchvision 预训练模型 / 推理 / 替换头 / 冻 backbone | 5 | 4 |
+| 6 | `07-cnn/` | nn.Module / 卷积 / 池化 / 训练 / 验证 / 保存加载 | 7 | 5 |
+| 7 | `08-experiments/` | 工程模板 / 训练 MNIST / CIFAR-10 / ResNet 微调 | 5 | 4 |
 
 每个模块的细节大纲(关键词、概念、目录导航)看对应模块的 `README.md`。
 
@@ -72,11 +72,11 @@ python 00-setup/check_env.py
 | 00 环境验证 | [`00-setup/doc/00-setup.md`](00-setup/doc/00-setup.md) |
 | 01 张量基础 | [`01-tensor-basics/doc/01-tensor-basics.md`](01-tensor-basics/doc/01-tensor-basics.md) |
 | 02 自动求导 | [`02-autograd/doc/02-autograd.md`](02-autograd/doc/02-autograd.md) |
-| 03 数据加载 | [`03-dataset-dataloader/doc/03-dataset-dataloader.md`](03-dataset-dataloader/doc/03-dataset-dataloader.md) |
-| 04 维度变换与注意力 | [`04-attention/doc/04-attention.md`](04-attention/doc/04-attention.md) |
-| 05 预训练模型 | [`05-pretrained-models/doc/05-pretrained-models.md`](05-pretrained-models/doc/05-pretrained-models.md) |
-| 06 卷积神经网络 | [`06-cnn/doc/06-cnn.md`](06-cnn/doc/06-cnn.md) |
-| 07 综合实验 | [`07-experiments/doc/07-experiments.md`](07-experiments/doc/07-experiments.md) |
+| 03 数据加载 | [`05-dataset-dataloader/doc/05-dataset-dataloader.md`](05-dataset-dataloader/doc/05-dataset-dataloader.md) |
+| 04 维度变换与注意力 | [`03-attention/doc/03-attention.md`](03-attention/doc/03-attention.md) |
+| 05 预训练模型 | [`06-pretrained-models/doc/06-pretrained-models.md`](06-pretrained-models/doc/06-pretrained-models.md) |
+| 06 卷积神经网络 | [`07-cnn/doc/07-cnn.md`](07-cnn/doc/07-cnn.md) |
+| 07 综合实验 | [`08-experiments/doc/08-experiments.md`](08-experiments/doc/08-experiments.md) |
 
 ## 📄 论文阅读
 
@@ -84,7 +84,7 @@ python 00-setup/check_env.py
 
 | 论文 | 关联章节 |
 |------|---------|
-| [Attention Is All You Need (Vaswani et al., NeurIPS 2017)](papers/Attention_Is_All_You_Need_CN.md) | [04-attention](04-attention/README.md) |
+| [Attention Is All You Need (Vaswani et al., NeurIPS 2017)](papers/Attention_Is_All_You_Need_CN.md) | [03-attention](03-attention/README.md) |
 
 新增论文的约定:见 [`papers/README.md`](papers/README.md)。
 
@@ -133,32 +133,32 @@ python 00-setup/check_env.py
 │   ├── exercises/             # 5 个
 │   ├── doc/02-autograd.md     # 教学文档
 │   └── README.md
-├── 03-dataset-dataloader/     # 数据加载
+├── 05-dataset-dataloader/     # 数据加载
 │   ├── examples/              # 6 个
 │   ├── exercises/             # 5 个
-│   ├── doc/03-dataset-dataloader.md
+│   ├── doc/05-dataset-dataloader.md
 │   └── README.md
-├── 04-attention/              # 维度变换与注意力矩阵
+├── 03-attention/              # 维度变换与注意力矩阵
 │   ├── examples/              # 3 个(02 端到端 demo + 03 mask 对比 + 04 batch 对比)
 │   ├── exercises/             # 3 个(手写 MHA / causal mask / 官方 SDPA 重写)
 │   ├── src/attention_tools.py # 课堂演示工具库
 │   ├── data/lesson_data.json  # 3 条手写小样本
-│   ├── doc/04-attention.md
+│   ├── doc/03-attention.md
 │   └── README.md
-├── 05-pretrained-models/      # 预训练模型
+├── 06-pretrained-models/      # 预训练模型
 │   ├── examples/              # 5 个
 │   ├── exercises/             # 4 个
-│   ├── doc/05-pretrained-models.md
+│   ├── doc/06-pretrained-models.md
 │   └── README.md
-├── 06-cnn/                    # 卷积神经网络
+├── 07-cnn/                    # 卷积神经网络
 │   ├── examples/              # 7 个
 │   ├── exercises/             # 5 个
-│   ├── doc/06-cnn.md          # 教学文档
+│   ├── doc/07-cnn.md          # 教学文档
 │   └── README.md
-├── 07-experiments/            # 综合实验
+├── 08-experiments/            # 综合实验
 │   ├── examples/              # 5 个
 │   ├── exercises/             # 4 个
-│   ├── doc/07-experiments.md
+│   ├── doc/08-experiments.md
 │   └── README.md
 ├── data/                      # 数据集缓存(MNIST / CIFAR-10)
 ├── checkpoints/               # 训练保存的模型权重

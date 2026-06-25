@@ -13,4 +13,4 @@
 
 | 论文 | 关联章节 | 类型 | 状态 |
 |------|---------|------|:----:|
-| [Attention Is All You Need](Attention_Is_All_You_Need_CN.md)(Vaswani et al., NeurIPS 2017) | [04-attention](../04-attention/README.md) | 精读 + 中文笔记 | ✅ |
+| [Attention Is All You Need](Attention_Is_All_You_Need_CN.md)(Vaswani et al., NeurIPS 2017) | [03-attention](../03-attention/README.md) | 精读 + 中文笔记 | ✅ |

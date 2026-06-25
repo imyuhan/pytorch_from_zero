@@ -36,11 +36,11 @@ dependencies = [
     "numpy>=1.26",
     "matplotlib>=3.8",
     "pillow>=10.0",
-    "torchinfo>=1.8",        # 06-cnn/03_lenet.py 用 summary()
+    "torchinfo>=1.8",        # 07-cnn/03_lenet.py 用 summary()
 ]  
 
 [project.optional-dependencies]
-# 07-experiments 章节里如果跑可视化 / confusion matrix 需要
+# 08-experiments 章节里如果跑可视化 / confusion matrix 需要
 viz = [
     "seaborn>=0.13",
     "scikit-learn>=1.4",
@@ -103,4 +103,4 @@ ignore = [
 #   - 在 tests/ 下放测试文件
 #   - examples/ 下的脚本视为"教学代码",默认不参与测试
 testpaths = ["tests"]
-pythonpath = ["04-attention/src"]
+pythonpath = ["03-attention/src"]

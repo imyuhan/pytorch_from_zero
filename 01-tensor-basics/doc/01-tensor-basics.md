@@ -805,7 +805,7 @@ requires_grad=True
               最终:测试集评估一次
 ```
 
-具体实现在 06-cnn/04_train_loop.py 和 07-experiments/02_train_mnist.py,先有个全局观。
+具体实现在 07-cnn/04_train_loop.py 和 08-experiments/02_train_mnist.py,先有个全局观。
 
 ---
 
