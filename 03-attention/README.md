@@ -1,4 +1,4 @@
-# 04 - 维度变换与注意力矩阵 (Attention Lab)
+# 03 - 维度变换与注意力矩阵 (Attention Lab)
 
 > **难度**: ⭐⭐⭐
 > **前置**: [01-tensor-basics]()
