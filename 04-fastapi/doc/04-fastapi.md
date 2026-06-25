@@ -15,6 +15,10 @@
 | `examples/05_response_model.py` | `response_model` 控制响应 + 状态码 + 统一错误体 |
 | `examples/06_sse_stream.py` | SSE 流式响应 + `text/event-stream` + 浏览器演示页 |
 | `examples/07_websocket.py` | WebSocket 双向通信 + 浏览器演示页 |
+| `examples/08_auth_api_key.py` | **API Key 鉴权**:`Depends` + `Header` 抽出鉴权 + 链式依赖 |
+| `examples/09_cors_frontend.py` | **CORS 跨域**:为什么只在浏览器场景 + 本地前端放行 |
+| `examples/10_layered_architecture.py` | **三层分层**:接口层 / 服务层 / 数据层 + 换协议/换数据库思想实验 |
+| `examples/11_testclient.py` | **TestClient 测试**:不起 TCP 端口测试 + 11 个测试场景 |
 
 ## 4.2 基础知识
 
@@ -693,6 +697,73 @@ async def upload(file: UploadFile = File(...)):
 
 ---
 
+### 4.3.8 `08_auth_api_key.py` — API Key 鉴权
+
+**重点**:
+- `Header(...)` 从 HTTP 请求头取值(参数名 `x_api_key` 自动对应 Header `X-API-Key`)
+- `Depends(verify_api_key)` 把鉴权逻辑从接口函数里"抽出来",**复用 + 易替换**
+- `dependencies=[Depends(...)]`:只要鉴权,接口函数拿不到返回值
+- `param: Type = Depends(...)`:既要鉴权又要拿返回值(比如"查调用方是谁")
+- **链式 Depends**:`A → Depends(B) → Depends(C)`,每层各管一摊
+
+**易错点**:
+- 401 vs 403 没分清:401 = "你没带凭证",403 = "你带了但没权限"
+- 鉴权函数忘了 `@classmethod` 不会报错但要写成普通函数,不要绑 self
+- 真实项目别把 `API_KEY` 硬编码在源码里,要用环境变量 / 配置中心
+
+---
+
+### 4.3.9 `09_cors_frontend.py` — CORS 跨域
+
+**重点**:
+- **CORS 是浏览器安全机制,不是后端限制** —— curl/Postman 不会被拦
+- 触发条件:协议 / 域名 / 端口 任一不同 = 跨域
+- 复杂请求会先发一个 OPTIONS "预检请求"(preflight)
+- `CORSMiddleware` 配置:`allow_origins` / `allow_credentials` / `allow_methods` / `allow_headers`
+- 真正测跨域需要两个不同端口(后端 :8000 + 前端 :3000)
+
+**易错点**:
+- `allow_origins=["*"]` + `allow_credentials=True` 是矛盾组合,FastAPI 直接报错
+- 中间件要在所有路由注册**之前** `add_middleware`(否则可能不生效)
+- 生产环境别用 `["*"]`,必须写具体域名
+- SSE/Stream 接口经常因为 CORS 配置漏了 `Access-Control-Allow-Headers` 而前端 EventSource 连不上
+
+---
+
+### 4.3.10 `10_layered_architecture.py` — 三层分层架构
+
+**重点**:
+- **接口层 (api.py)**:只管 URL → 函数映射,收请求 / 调服务 / 包装响应
+- **服务层 (service.py)**:业务规则(用户名不能重复 / 密码要 hash),**不依赖 FastAPI**
+- **数据层 (db.py)**:CRUD,**不做业务校验**,屏蔽"数据具体存在哪儿"
+- 服务层抛业务异常(`UserAlreadyExistsError`),接口层 `try/except` 转 HTTP 状态码
+- **换协议(gRPC)只动接口层 / 换数据库只动数据层 / 改业务只动服务层**
+
+**易错点**:
+- 把 SQL 写在接口函数里 → 换数据库时所有接口都要改
+- 让 service 层依赖 `Request` 对象 → 无法被 CLI / 定时任务复用
+- 业务异常和 HTTP 异常混用 → service 层应该只抛业务异常,HTTPException 是接口层的事
+
+---
+
+### 4.3.11 `11_testclient.py` — TestClient 测试
+
+**重点**:
+- `from fastapi.testclient import TestClient`,内部用 httpx + ASGI transport
+- **不起 TCP 端口、不走真实网络栈**,直接在内存里把 HTTP 请求喂给 ASGI app
+- `client.get("/x")` / `client.post("/x", json={...})` / `client.get("/x", headers={...})`
+- 断言 `r.status_code` / `r.json()` / `r.text` / `r.headers`
+- 测 Pydantic 校验失败 → 422 / 测鉴权失败 → 401 / 测业务 404 / 测 SSE 完整文本
+- 支持 `with TestClient(app) as c:` 上下文清理
+
+**易错点**:
+- 测不到 CORS(不走浏览器)
+- 测不到真实网络层(超时、TLS)
+- 测不到 uvicorn 启动错误(端口冲突)
+- 这些场景得用浏览器手动测或 e2e 测试(Playwright)
+
+---
+
 ## 4.4 进阶知识
 
 ### 4.4.1 鉴权深度:API Key / JWT / OAuth 2.0
@@ -829,25 +900,169 @@ gunicorn app.api:app -w 4 -k uvicorn.workers.UvicornWorker
 ## 4.6 学习自检
 
 能口述:
-- [ ] HTTP 是什么?一次请求包含哪些部分?
-- [ ] GET 和 POST 的区别?
-- [ ] 路径参数、Query 参数、Body 怎么区分?各适合什么场景?
-- [ ] Pydantic 帮你做了哪些事?
+- [ ] HTTP 是什么?一次请求包含哪些部分(请求行 / Header / Body)?
+- [ ] GET 和 POST 的区别?PUT/PATCH/DELETE 又是什么?
+- [ ] 路径参数、Query 参数、Header、Body、状态码分别是什么?各适合什么场景?
+- [ ] Pydantic 帮你做了哪些事(类型校验 / 范围校验 / 嵌套解析 / 序列化和反序列化)?
 - [ ] `response_model` 有什么用?为什么要拆"内部模型"和"对外模型"?
+- [ ] 401 vs 403 vs 422 vs 500 的区别?
+- [ ] `Depends` 解决了什么问题?`dependencies=[...]` 和函数参数 `Depends(...)` 的区别?
+- [ ] Header 参数名 `x_api_key` 怎么对应到 HTTP 头 `X-API-Key`?
+- [ ] CORS 跨域是什么?**为什么只在浏览器场景常见**?curl 调会被拦吗?
 - [ ] 一次性响应 vs 流式响应,什么时候用哪个?
-- [ ] SSE 消息格式是什么?
+- [ ] SSE 消息格式是什么?为什么必须有 `Cache-Control: no-cache`?
 - [ ] WebSocket 和 HTTP 的本质区别?
-- [ ] CORS 跨域是什么?为什么会报错?
+- [ ] **为什么接口层 / 服务层 / 数据层要分开**?换协议/换数据库各动哪一层?
+- [ ] **TestClient 为什么不需要起 TCP 端口**?它测不到哪些场景?
 
 能写:
 - [ ] 一个支持 GET + POST 的小接口
 - [ ] 一个用 Pydantic 校验的登录接口
+- [ ] 一个用 `response_model` 过滤敏感字段的接口
+- [ ] 一个用 `HTTPException` 返回 401/404 的接口
+- [ ] 一个用 `Depends` + `Header` 抽出的 API Key 鉴权接口
+- [ ] 一个配置了 CORS、放行本地前端的服务
 - [ ] 一个 SSE 流式接口,前端用 EventSource 收
 - [ ] 一个 WebSocket 聊天接口
+- [ ] 一个按"接口层/服务层/数据层"分层的完整登录功能
+- [ ] 一组用 TestClient 写的测试(覆盖正常路径 + 422 + 401 + 404)
 
 ---
 
-## 4.7 下一步
+## 4.7 底层机制速查(回答"为什么是这样")
+
+> 这一节是给喜欢追问"为什么"的读者。每个机制用一两句话讲清本质,不深挖源码。
+
+### 1) FastAPI 为什么基于 ASGI 而不是 WSGI?
+
+- **WSGI**(Web Server Gateway Interface)是 Python 老的 Web 协议,Flask/Django 用它。**只能一发一回**,拿到请求 → 处理 → 返回,中间没法"边算边发"。
+- **ASGI**(Asynchronous Server Gateway Interface)是新一代协议。**支持 async/await、长连接、流式响应、WebSocket**。
+- FastAPI 的 SSE 流式、WebSocket 全靠 ASGI。如果用 WSGI,你写不出 ChatGPT 那种打字机效果。
+
+### 2) Pydantic v2 校验时到底发生了什么?
+
+```python
+class User(BaseModel):
+    name: str = Field(..., min_length=1)
+    age: int = Field(..., ge=0)
+```
+
+收到 JSON → Pydantic 调用 `User.model_validate(json_dict)`(内部是 Rust 写的 `pydantic-core`):
+1. **类型强制转换**:`"42"` → `42`(`str → int` 自动转,转不了才报错)
+2. **字段校验**:`age=42` 满足 `ge=0` → 通过
+3. **构造实例**:`User(name="...", age=42)` 是个普通 Python 对象
+4. **嵌套递归**:字段是 BaseModel 时,递归走同样流程
+
+> v2 比 v1 快 5-50 倍,原因是校验逻辑用 Rust 实现了。
+
+### 3) `response_model` 内部到底做了什么?
+
+```python
+@app.get("/users/{id}", response_model=UserResponse)
+def get_user(id: int):
+    return db.get(id)   # 返回的可能是带 password 的 dict
+```
+
+FastAPI 看到 `response_model=UserResponse` 后:
+1. **不信任你的返回值**,用 Pydantic 重新校验一次
+2. **只保留 UserResponse 里声明的字段**,password 被静默过滤
+3. **生成 OpenAPI 文档**:响应 schema 直接来自 UserResponse
+4. **额外好处**:你 `return dict` 也行,Pydantic 会自动按 UserResponse 解析
+
+### 4) `Depends` 是怎么"注入"的?
+
+```python
+def get_db():
+    db = connect()
+    try:
+        yield db      # ← yield 不是 return
+    finally:
+        db.close()    # ← 接口结束时自动跑
+
+@app.get("/users")
+def list_users(db=Depends(get_db)):
+    return db.query(...)
+```
+
+FastAPI 内部维护一个**依赖图**:
+1. 调用接口前,从图里"逆向"算出需要哪些依赖
+2. 按依赖顺序执行(底层依赖先跑)
+3. **遇到 `yield` 就把控制权交给接口函数**
+4. 接口函数返回后,再回到 `yield` 那里继续走 `finally`
+5. 这就是"上下文管理"的依赖为什么用 `yield` 而不是 `return`
+
+### 5) TestClient 为什么不需要起端口?
+
+```python
+from fastapi.testclient import TestClient
+client = TestClient(app)
+r = client.get("/ping")   # 没起任何服务
+```
+
+底层流程:
+```
+TestClient → httpx.Client → httpx.ASGITransport(app=app) → 直接调 app(scope, receive, send)
+                                          ↑
+                                  这是个 ASGI "适配器",把 HTTP
+                                  请求转成 ASGI 的 scope/receive/send
+                                  三大参数,直接喂给 app
+```
+
+**没有 socket、没有 TCP、没有操作系统网络栈**。所以测试:
+- 更快(不用 listen/accept/握手)
+- 更稳(不会因为端口被占失败)
+- 更纯(只测你的业务逻辑,不测 uvicorn)
+
+但**测不到**:CORS 头、真实网络超时、TLS、uvicorn 启动错误。这些得用浏览器/e2e 测。
+
+### 6) SSE 底层走的是什么 HTTP 机制?
+
+SSE 不是新协议,**就是 HTTP/1.1 的 chunked transfer encoding**。
+
+```
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+Transfer-Encoding: chunked     ← 关键:不分块,长度未知
+
+3\r\n
+event: start
+data: {...}
+\r\n
+
+...后续 chunk...
+```
+
+服务端 `yield` 一次,FastAPI 就 `send` 一个 chunk;客户端不停收。**SSE 就是用 HTTP 的"长度未知分块传输"模拟了长连接**。
+
+`Cache-Control: no-cache` 必须有,因为浏览器/代理可能缓存整个响应,流式效果就废了。
+
+### 7) CORS 为什么要分"简单请求"和"复杂请求"?
+
+- **简单请求**(`GET/HEAD/POST` + 简单 Header + `Content-Type: text/plain|application/x-www-form-urlencoded|multipart/form-data`):浏览器直接发,服务端返回 CORS 头决定能不能用
+- **复杂请求**(自定义 Header、JSON POST 等):浏览器**先发 OPTIONS 预检**,问"我要做这个,行不行?",200 后才发真正的请求
+
+预检是为了**让服务端拒绝复杂请求时省一次真实请求**。比如你发个 `DELETE` 带自定义头,服务端没声明允许,直接 OPTIONS 阶段就 403,真正的 DELETE 根本不发。
+
+### 8) 状态码速查
+
+| 码 | 含义 | FastAPI 里怎么触发 |
+|----|------|------------------|
+| **200** | OK | 默认值 |
+| **201** | Created | `@app.post(..., status_code=201)` |
+| **204** | No Content | `return Response(status_code=204)` |
+| **301/302** | 重定向 | `RedirectResponse` |
+| **400** | Bad Request | `HTTPException(400)` 通用请求错 |
+| **401** | Unauthorized | 没带凭证 / 凭证错 |
+| **403** | Forbidden | 有凭证但没权限 |
+| **404** | Not Found | 资源不存在 |
+| **409** | Conflict | 资源冲突(用户名已存在) |
+| **422** | Unprocessable Entity | **Pydantic 校验失败**(FastAPI 自动返) |
+| **429** | Too Many Requests | 限流 |
+| **500** | Server Error | 未捕获的代码异常 |
+
+---
+
+## 4.8 下一步
 
 - 继续学下一章:进入 [`05-dataset-dataloader/doc/05-dataset-dataloader.md`](../../05-dataset-dataloader/doc/05-dataset-dataloader.md) 学数据加载 —— `Dataset` / `DataLoader` / `transforms`。
 - 想接大模型 API:看 [DeepSeek](https://platform.deepseek.com/) / OpenAI / Anthropic 的官方文档
